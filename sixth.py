@@ -36,18 +36,18 @@ def mult_X(Q,X,u,m,k):
         QX[r[1],:]=QX[r[1],:]+r[2]*X[r[0],:]
     return QX
     
-os.chdir("C:\Users\Dandachi\Desktop\Projet_PRIM")
+os.chdir("C:\Users\Dandachi\Desktop\Projet_PRIM\ml-latest")
 
 
 tag_headers = ['user_id', 'movie_id', 'tag', 'timestamp']
-tags = pd.read_table('users.dat', sep='::', header=None, names=tag_headers)
+tags = pd.read_table('tags.csv', sep=',', header=None, names=tag_headers)
 
 rating_headers = ['user_id', 'movie_id', 'rating', 'timestamp']
-ratings = pd.read_table('ratings.dat', sep='::', header=None, names=rating_headers)
+ratings = pd.read_table('ratings.csv', sep=',', header=None, names=rating_headers)
 
 movie_headers = ['movie_id', 'title', 'genres']
-movies = pd.read_table('movies.dat',
-                       sep='::', header=None, names=movie_headers)
+movies = pd.read_table('movies.csv',
+                       sep=',', header=None, names=movie_headers)
 movie_titles = movies.title.tolist()
 
 df = ratings.join(movies, on=['movie_id'], rsuffix='_r').join(tags, on=['movie_id'], rsuffix='_t')
@@ -100,5 +100,20 @@ for k_factor in n_factors:
 plt.plot(n_factors,np.sqrt(k_errors/Q_train.shape[0]))
 plt.ylim([650000, 1400000]);
 
+Allhists=np.zeros((len(n_factors),int(np.sum(W_test))))
+for h in range(0,len(n_factors)):
+    Allhists[h]=get_histogram(Q_test,Q_hats[h],W_test)
+
+for h in range(0,len(n_factors)):
+    fig=plt.figure(2000+h)
+    plt.xlabel(n_factors[h])
+    plt.hist(Allhists[h],bins=[-5,-4,-3,-2,-1,0,1,2,3,4,5])
+    plt.savefig('histsdqsd'+str(n_factors[h])+'.svg')
+    
+#moyen
+moyAll=np.mean(Allhists,axis=1)
+stdAll=np.std(Allhists,axis=1)  
+fig=plt.figure(3001)
+plt.plot(n_factors,moyAll,n_factors,stdAll)  
 
     
