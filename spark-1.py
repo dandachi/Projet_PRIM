@@ -13,7 +13,7 @@ from math import sqrt
 from operator import add
 from os.path import join, isfile, dirname
 
-from pyspark import SparkConf, SparkContext
+from pyspark import SparkConf, SparkContext, storagelevel
 from pyspark.mllib.recommendation import ALS
 
 def get_error(Q, X, Y):
@@ -98,30 +98,36 @@ def ayvect(x,modelY):
     print 'movie'+str(x[1])
     return (x[0], x[2]*modelY[x[1],:])
     
-def myALStrain(training, rank, numIter, lmbda,usersnum,moviesnum):
+def myALStrain(training, rank, numIter, lmbda,usersnum,moviesnum,ratings):
     np.random.seed(45)
-    modelX = 5 * np.random.rand(usersnum+1, rank) 
-    modelY = 5 * np.random.rand(moviesnum+1, rank)
-
+    #modelX = 5 * np.random.rand(usersnum+1, rank) 
+    #modelY = 5 * np.random.rand(moviesnum+1, rank)
+    modelXY=[]
+    modelXY.append( 5 * np.random.rand(usersnum+1, rank))
+    modelXY.append( 5 * np.random.rand(moviesnum+1, rank))
+    
     for ii in range(numIter):
         AY=np.zeros((usersnum+1,rank))
         AX=np.zeros((moviesnum+1,rank))
-        AY_list=training.map(lambda x:(x[0], x[2]*modelY[x[1],:])).reduceByKey(lambda p,q:p+q).collectAsMap()
+        AY_list=training.map(lambda x:(x[0], x[2]*modelXY[1][x[1],:])).reduceByKey(lambda p,q:p+q).collectAsMap()
         
         for key, value in AY_list.iteritems():
             AY[key]=value
-        modelX = np.linalg.solve(np.dot(modelY.T, modelY) + lmbda * np.eye(rank), 
-                        AY.T).T
         
-        AX_list=training.map(lambda x: (x[1], x[2]*modelX[x[0],:])).reduceByKey(lambda p,q:p+q).collectAsMap()
+        modelXY[0] = np.linalg.solve(np.dot(modelXY[1].T, modelXY[1]) + lmbda * np.eye(rank), AY.T).T
+
+        AX_list=training.map(lambda x:(x[1], x[2]*modelXY[0][x[0],:])).reduceByKey(lambda p,q:p+q).collectAsMap()
         
         for key, value in AX_list.iteritems():
             AX[key]=value
-        modelY = np.linalg.solve(np.dot(modelX.T, modelX) + lmbda * np.eye(rank),
-                        AX.T).T
+            
+        modelXY[1] = np.linalg.solve(np.dot(modelXY[0].T, modelXY[0]) + lmbda * np.eye(rank),AX.T).T
+                        
+
+        
         if ii % 10 == 0:
             print(str(ii)+'iteration  completed'.format(ii))
-    return (modelX,modelY)
+    return modelXY
 
 if __name__ == "__main__":
     if (len(sys.argv) != 3):
@@ -132,7 +138,7 @@ if __name__ == "__main__":
     # set up environment
     conf = SparkConf() \
       .setAppName("MovieLensALS") \
-      .set("spark.executor.memory", "2g")
+      .set("spark.executor.memory", "4g")
     sc = SparkContext(conf=conf)
 
     # load personal ratings
@@ -167,6 +173,7 @@ if __name__ == "__main__":
       .union(myRatingsRDD) \
       .repartition(numPartitions) \
       .cache()
+      #.persist(storagelevel.StorageLevel.useDisk)
 
     validation = ratings.filter(lambda x: x[0] >= 6 and x[0] < 8) \
       .values() \
@@ -193,7 +200,7 @@ if __name__ == "__main__":
     bestNumIter = -1
 
     for rank, lmbda, numIter in itertools.product(ranks, lambdas, numIters):
-        modelX,modelY = myALStrain(training, rank, numIter, lmbda,maxUsers,maxMovies)
+        modelX,modelY = myALStrain(training, rank, numIter, lmbda,maxUsers,maxMovies,ratings)
         validationRmse = myComputeRmse(modelX,modelY, validation, numValidation)
         print "out: RMSE (validation) = %f for the model trained with " % validationRmse + \
               "rank = %d, lambda = %.1f, and numIter = %d." % (rank, lmbda, numIter)
