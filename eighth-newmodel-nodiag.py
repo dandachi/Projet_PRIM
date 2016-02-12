@@ -88,9 +88,9 @@ Q=Q_train+Q_test
 
 lambda_ = 0.1
 #n_factors = [2,4,8,16,32,64,128,256,512,1024,2048]
-n_factors=range(1,24,2)
-# n_factors=[32]
-m, n = Q_train.shape
+#n_factors=range(16,25,8)
+n_factors=[4]
+n, m = Q_train.shape
 n_iterations = 20
 k_errors=np.zeros(len(n_factors))
 gradient=0
@@ -98,18 +98,21 @@ pas=1
 Q_hats=[]
 for k_factor in n_factors:
     np.random.seed(45)
-    X = 5 * np.random.rand(m, k_factor) 
-    Y = 5 * np.random.rand(k_factor, n)
+    X = 5 * np.random.rand(n, k_factor) 
+    Y = 5 * np.random.rand(m,k_factor)
+    wspread=np.ones(k_factor)
     errors = []
     for ii in range(n_iterations):
-        X = np.linalg.solve(np.dot(Y, Y.T) + lambda_ * np.eye(k_factor), 
-                        np.dot(Y, Q_train.T)).T
-        Y = np.linalg.solve(np.dot(X.T, X) + lambda_ * np.eye(k_factor),
-                        np.dot(X.T, Q_train))
-        if ii % 100 == 0:
-            print('{}th iteration is completed'.format(ii))
-        #errors.append(get_error(Q_test, X, Y, W_test))
-    Q_hat = np.dot(X, Y)#.clip(min=0,max=5)
+        for u, Wu in enumerate(W_train):
+            X[u] = np.linalg.solve(np.dot(Y.T, np.array([Wu,]*k_factor).T*Y) + lambda_ * np.eye(k_factor), 
+                    np.dot(Y.T, Q_train[u].T)).T
+        for i, Wi in enumerate(W_train.T):
+            Y[i] = np.linalg.solve(np.dot(X.T,np.array([Wi,]*k_factor).T* X) + lambda_ * np.eye(k_factor),
+                        np.dot(X.T, Q_train[:, i]))
+        
+        print('{}th iteration is completed'.format(ii))
+        errors.append(np.sqrt(get_error_Qpred(Q_test,np.dot(X, Y.T),W_test)/np.sum(W_test)))
+    Q_hat = np.dot(X, Y.T)#.clip(min=0,max=5)
     Q_hats.append(Q_hat)
     k_errors[n_factors.index(k_factor)]=np.sqrt(get_error_Qpred(Q_test,Q_hat,W_test)/np.sum(W_test))
 
@@ -122,18 +125,79 @@ plt.ylim([650000, 1400000]);
 
 Allhists=np.zeros((len(n_factors),int(np.sum(W_test))))
 for h in range(0,len(n_factors)):
-    Allhists[h]=get_histogram(Q_test,Q_hats[h],W_test)
+    Allhists[h]=get_histogram(Q_test,Q_hat,W_test)
 
 for h in range(0,len(n_factors)):
     fig=plt.figure(2000+h)
-    plt.xlabel(n_factors[h])
+    plt.xlabel('rating difference')
+    plt.ylabel('count')
     plt.hist(Allhists[h],bins=[-5,-4,-3,-2,-1,0,1,2,3,4,5])
-    plt.savefig('hist'+str(n_factors[h])+'.png')
+    plt.savefig('hist'+str(n_factors[h])+'.svg')
     
 #moyen
 moyAll=np.mean(Allhists,axis=1)
 stdAll=np.std(Allhists,axis=1)  
 fig=plt.figure(3001)
-plt.plot(n_factors,moyAll,n_factors,stdAll)  
+#n= 24 , rmse = 1.12530387
+#errors=[1.1213583849485158,
+# 1.0949271753962766,
+# 1.0897329060749132,
+# 1.0888709225900921,
+# 1.0917134722328095,
+# 1.0943583004908919,
+# 1.097088270779226,
+# 1.099269918472723,
+# 1.1014207300311882,
+# 1.1037473681291181,
+# 1.1064507009371587,
+# 1.1092125818050831,
+# 1.1118180058111184,
+# 1.1140623702074486,
+# 1.1161024801577724,
+# 1.118028495133127,
+# 1.1198617017270847,
+# 1.1216866058337229,
+# 1.1235286232449078,
+# 1.1253038711419006]
+#n= 16 , rmse = 0.99123483
+#n= 12 , rmse = 0.94044448
+#n=  8 , rmse = 0.90080001
+#n=  6 , rmse = 0.88332996
+#n=  5 , rmse = 0.87809051 
+#errors= [0.95286914470526629,
+# 0.93063502136234699,
+# 0.91263902033579192,
+# 0.90101593281100012,
+# 0.89230707143509114,
+# 0.88658820435674213,
+# 0.88285906498570321,
+# 0.8807516167408419,
+# 0.87965111755866532,
+# 0.87894197981215583,
+# 0.87846615314329246,
+# 0.87813907471822905,
+# 0.87793937544583955,
+# 0.8778542549053695,
+# 0.877844309708254,
+# 0.87786756991317516,
+# 0.87791169450839779,
+# 0.8779697892450441,
+# 0.87803219927386911,
+# 0.87809051259996385]
+# n=  5,
+#[0.95248800986924187, 0.90646191581233682, 0.8912780210279676, 0.88381579678283384, 0.88094762020384743, 0.87936849608229617, 0.87833271166097104, 0.87765915207073197, 0.87725417255839866, 0.87700727932634015, 0.8768551676746652, 0.87676701976269678, 0.8767238825724879, 0.87670912736494699, 0.87671085438028173]
+# ALS = RMSE (validation) = 0.864853 for the model trained with rank = 24, lambda = 0.1,
 
-    
+fig= plt.figure(2134)
+plt.xlabel('iterations')
+plt.ylabel('RMSE')
+plt.title('rmse rank=24 equation with mask')
+plt.plot(errors)
+plt.savefig('rmse rank=24 equation with mask.svg')
+
+fig = plt.figure(2202)
+plt.xlabel('rank')
+plt.ylabel('RMSE')
+plt.title('rmse to rank variation')
+plt.plot(ogge,oggermse)
+plt.savefig('rmse to rank variation.svg')

@@ -99,29 +99,53 @@ def ayvect(x,modelY):
     print 'movie'+str(x[1])
     return (x[0], x[2]*modelY[x[1],:])
     
+def sparkSolveX(iterai,Y,m,k,lambda_):
+    tempai=np.zeros(m+1)
+
+    for atuple in iterai:
+        tempai[atuple[0]]=atuple[1]
+    
+    tempwi = tempai>0.5
+    tempwi[tempwi == True] = 1.0
+    tempwi[tempwi == False] = 0.0
+    x=np.linalg.solve(np.dot(Y.T, np.array([tempwi,]*k).T*Y) + lambda_ * np.eye(k), 
+                    np.dot(Y.T, tempai.T)).T
+    return x
+
+def sparkSolveY(iteraj,X,n,k,lambda_):
+    tempaj=np.zeros(n+1)
+
+    for atuple in iteraj:
+        tempaj[atuple[0]]=atuple[1]
+    
+    tempwj = tempaj>0.5
+    tempwj[tempwj == True] = 1.0
+    tempwj[tempwj == False] = 0.0
+    
+     
+    y = np.linalg.solve(np.dot(X.T,np.array([tempwj,]*k).T* X) + lambda_ * np.eye(k),
+                        np.dot(X.T, tempaj.T))
+                        
+    return y
+    
 def myALStrain(training, rank, numIter, lmbda,usersnum,moviesnum,ratings):
     np.random.seed(45)
     modelX = 5 * np.random.rand(usersnum+1, rank) 
     modelY = 5 * np.random.rand(moviesnum+1, rank)
     #modelX=RandomRDDs.normalVectorRDD(sc, usersnum+1, rank,4, seed=45)
     #modelY=RandomRDDs.normalVectorRDD(sc, moviesnum+1, rank,4, seed=45)
-    
+    ai=training.map(lambda x: (x[0],(x[1],x[2]))).groupByKey()
+    aj=training.map(lambda x: (x[1],(x[0],x[2]))).groupByKey()
     for ii in range(numIter):
-        AY=np.zeros((usersnum+1,rank))
-        AX=np.zeros((moviesnum+1,rank))
-        AY_list=training.map(lambda x:(x[0], x[2]*modelY[x[1],:])).reduceByKey(lambda p,q:p+q).collectAsMap()
+     
         
-        for key, value in AY_list.iteritems():
-            AY[key]=value
+        mxByligne = ai.map(lambda x: (x[0],sparkSolveX(x[1],modelY,moviesnum,rank,lmbda))).collectAsMap()
+        for key, value in mxByligne.iteritems():
+            modelX[key]=value
         
-        modelX = np.linalg.solve(np.dot(modelY.T, modelY) + lmbda * np.eye(rank), AY.T).T
-
-        AX_list=training.map(lambda x:(x[1], x[2]*modelX[x[0],:])).reduceByKey(lambda p,q:p+q).collectAsMap()
-        
-        for key, value in AX_list.iteritems():
-            AX[key]=value
-            
-        modelY = np.linalg.solve(np.dot(modelX.T, modelX) + lmbda * np.eye(rank),AX.T).T
+        myByligne = aj.map(lambda x: (x[0],sparkSolveY(x[1],modelX,usersnum,rank,lmbda))).collectAsMap()
+        for key, value in myByligne.iteritems():
+            modelY[key]=value
                         
 
         
@@ -191,7 +215,7 @@ if __name__ == "__main__":
 
     # train models and evaluate them on the validation set
 
-    ranks = [16]
+    ranks = [4]
     lambdas = [0.1]
     numIters = [20]
     bestModel = None
