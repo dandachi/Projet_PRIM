@@ -154,7 +154,7 @@ def myALStrain(training, rank, numIter, lmbda,usersnum,moviesnum,ratings):
     return modelX,modelY
 
 if __name__ == "__main__":
-    start = time.time()
+
     if (len(sys.argv) != 3):
         print "out: Usage: /path/to/spark/bin/spark-submit --driver-memory 2g " + \
           "MovieLensALS.py movieLensDataDir personalRatingsFile"
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     # training, validation, test are all RDDs of (userId, movieId, rating)
 
     numPartitions = 4
-    training = ratings.filter(lambda x: x[0] < 6) \
+    training = ratings.filter(lambda x: x[0] < 8) \
       .values() \
       .union(myRatingsRDD) \
       .repartition(numPartitions) \
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     print "out: Training: %d, validation: %d, test: %d" % (numTraining, numValidation, numTest)
 
     # train models and evaluate them on the validation set
-
+    start = time.time()
     ranks = [4]
     lambdas = [0.1]
     numIters = [20]

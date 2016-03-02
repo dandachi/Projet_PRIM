@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import random
 import math
+import time
 
 
 def get_error(Q, X, Y, W):
@@ -21,9 +22,8 @@ def get_histogram(Q,Qpred,W):
     
 os.chdir("C:\Users\Dandachi\Desktop\Projet_PRIM")
 
-
-tag_headers = ['user_id', 'movie_id', 'tag', 'timestamp']
-tags = pd.read_table('users.dat', sep='::', header=None, names=tag_headers)
+users_headers = ['user_id','gender','age', 'occupation', 'zip-code']
+users = pd.read_table('users.dat', sep='::', header=None, names=users_headers)
 
 rating_headers = ['user_id', 'movie_id', 'rating', 'timestamp']
 ratings = pd.read_table('ratings.dat', sep='::', header=None, names=rating_headers)
@@ -33,62 +33,47 @@ movies = pd.read_table('movies.dat',
                        sep='::', header=None, names=movie_headers)
 movie_titles = movies.title.tolist()
 
-df = ratings.join(movies, on=['movie_id'], rsuffix='_r').join(tags, on=['movie_id'], rsuffix='_t')
-del df['movie_id_r']
-del df['user_id_t']
-del df['movie_id_t']
-del df['timestamp_t']
+datamerged = (ratings.merge(movies, on=['movie_id'])).merge(users, on=['user_id'])
+data_merged=datamerged.sort_values('user_id')
 
 ####################### Preparing training data and testing data
 random.seed(1992)
 #df_train=df.sample(frac=0.9).sort_index()
 #df_test = df.loc[~df.index.isin(df_train.index)]
-df_train=df.loc[df['timestamp']%10<8]
-df_test=df.loc[df['timestamp']%10>=8]
+df_train=datamerged.loc[datamerged['timestamp']%10<8]
+df_test=datamerged.loc[datamerged['timestamp']%10>=8]
 
-#rp = df.pivot_table(columns=['movie_id'],index=['user_id'],values='rating')
-##rp_train.columns.reindex(range(1,len(movie_titles)))
-#rp = rp.fillna(0); # Replace NaN
-#rp=  rp.reindex(range(1,len(tags)+1),range(1,len(movie_titles)+1),fill_value=0)
-#Q = rp.values
 
 rp_train = df_train.pivot_table(columns=['movie_id'],index=['user_id'],values='rating')
-#rp_train.columns.reindex(range(1,len(movie_titles)))
 rp_train = rp_train.fillna(0); # Replace NaN
-rp_train=  rp_train.reindex(range(1,len(tags)+1),range(1,len(movie_titles)+1),fill_value=0)
+rp_train=  rp_train.reindex(range(1,len(users)+1),range(1,len(movie_titles)+1),fill_value=0)
 Q_train = rp_train.values
 
 rp_test = df_test.pivot_table(columns=['movie_id'],index=['user_id'],values='rating')
 #rp_train.columns.reindex(range(1,len(movie_titles)))
 rp_test = rp_test.fillna(0); # Replace NaN
-rp_test=  rp_test.reindex(range(1,len(tags)+1),range(1,len(movie_titles)+1),fill_value=0)
+rp_test=  rp_test.reindex(range(1,len(users)+1),range(1,len(movie_titles)+1),fill_value=0)
 Q_test = rp_test.values
 
 
-#W = Q>0.5
-#W[W == True] = 1
-#W[W == False] = 0
-## To be consistent with our Q matrix
-#W = W.astype(np.float64, copy=False)
 
 W_train = Q_train>0.5
 W_train[W_train == True] = 1
 W_train[W_train == False] = 0
-# To be consistent with our Q matrix
 W_train = W_train.astype(np.float64, copy=False)
 
 W_test = Q_test>0.5
 W_test[W_test == True] = 1
 W_test[W_test == False] = 0
-# To be consistent with our Q matrix
 W_test = W_test.astype(np.float64, copy=False)
 
 W=W_train+W_test
 Q=Q_train+Q_test
 
+start=time.time()
 lambda_ = 0.1
 #n_factors = [2,4,8,16,32,64,128,256,512,1024,2048]
-#n_factors=range(16,25,8)
+#n_factors=range(1,24)
 n_factors=[4]
 n, m = Q_train.shape
 n_iterations = 20
@@ -101,7 +86,7 @@ for k_factor in n_factors:
     X = 5 * np.random.rand(n, k_factor) 
     Y = 5 * np.random.rand(m,k_factor)
     wspread=np.ones(k_factor)
-    errors = []
+    #errors = []
     for ii in range(n_iterations):
         for u, Wu in enumerate(W_train):
             X[u] = np.linalg.solve(np.dot(Y.T, np.array([Wu,]*k_factor).T*Y) + lambda_ * np.eye(k_factor), 
@@ -111,13 +96,14 @@ for k_factor in n_factors:
                         np.dot(X.T, Q_train[:, i]))
         
         print('{}th iteration is completed'.format(ii))
-        errors.append(np.sqrt(get_error_Qpred(Q_test,np.dot(X, Y.T),W_test)/np.sum(W_test)))
+        #errors.append(np.sqrt(get_error_Qpred(Q_test,np.dot(X, Y.T),W_test)/np.sum(W_test)))
     Q_hat = np.dot(X, Y.T)#.clip(min=0,max=5)
     Q_hats.append(Q_hat)
     k_errors[n_factors.index(k_factor)]=np.sqrt(get_error_Qpred(Q_test,Q_hat,W_test)/np.sum(W_test))
-
+end=time.time()
+print 'total time = ' + str(end-start)
 print k_errors
-plt.plot(k_errors);
+plt.plot(n_factors,k_errors);
 plt.ylim([3, 3.2]);
 
 plt.plot(n_factors,k_errors)
@@ -187,6 +173,10 @@ fig=plt.figure(3001)
 # n=  5,
 #[0.95248800986924187, 0.90646191581233682, 0.8912780210279676, 0.88381579678283384, 0.88094762020384743, 0.87936849608229617, 0.87833271166097104, 0.87765915207073197, 0.87725417255839866, 0.87700727932634015, 0.8768551676746652, 0.87676701976269678, 0.8767238825724879, 0.87670912736494699, 0.87671085438028173]
 # ALS = RMSE (validation) = 0.864853 for the model trained with rank = 24, lambda = 0.1,
+#kerros[ 0.91326811  0.88555236  0.87824889  0.87683382  0.87809051  0.88332996
+#  0.89002202  0.90080001  0.91010274  0.92778239  0.94222026  0.95483231
+#  0.97278485  0.98927319  1.0075013   1.01820604  1.03500993  1.04214392
+#  1.06047551  1.07530225  1.09364333  1.10109389  1.11327455]
 
 fig= plt.figure(2134)
 plt.xlabel('iterations')
@@ -199,5 +189,5 @@ fig = plt.figure(2202)
 plt.xlabel('rank')
 plt.ylabel('RMSE')
 plt.title('rmse to rank variation')
-plt.plot(ogge,oggermse)
+plt.plot(n_factors,k_errors)
 plt.savefig('rmse to rank variation.svg')

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import random
 import math
+import time
 
 
 def get_error(Q, X, Y):
@@ -68,10 +69,11 @@ df_test = df.loc[~df.index.isin(df_train.index)]
 Q_test=df_test[['user_id','movie_id','rating']].values
 
 
+start=time.time()
 lambda_ = 0.1
-n_factors = [2,4,8,16,32,64,128,256,512,1024,2048]
+#n_factors = [2,4,8,16,32,64,128,256,512,1024,2048]
 #n_factors=range(1,65)
-#n_factors=[30]
+n_factors=[32]
 
 n_iterations = 20
 k_errors=np.zeros(len(n_factors))
@@ -96,7 +98,8 @@ for k_factor in n_factors:
     k_errors[n_factors.index(k_factor)]=get_error(Q_test,X,Y)
 #plt.plot(errors);
 #plt.ylim([0, 1000000]);
-
+end=time.time()
+print 'execution time:',(end-start)
 plt.plot(n_factors,np.sqrt(k_errors/Q_train.shape[0]))
 plt.ylim([650000, 1400000]);
 

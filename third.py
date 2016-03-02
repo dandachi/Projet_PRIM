@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import random
 import math
-
+import time
 
 def get_error(Q, X, Y, W):
     return np.sum((W * (Q - np.dot(X, Y)))**2)
@@ -86,11 +86,12 @@ W_test = W_test.astype(np.float64, copy=False)
 W=W_train+W_test
 Q=Q_train+Q_test
 
+start=time.time()
 lambda_ = 0.1
 #n_factors = [2,4,8,16,32,64,128,256,512,1024,2048]
-n_factors=range(1,24,2)
-# n_factors=[32]
-m, n = Q_train.shape
+#n_factors=range(1,48,2)
+n_factors=[32]
+n, m = Q_train.shape
 n_iterations = 20
 k_errors=np.zeros(len(n_factors))
 gradient=0
@@ -98,8 +99,8 @@ pas=1
 Q_hats=[]
 for k_factor in n_factors:
     np.random.seed(45)
-    X = 5 * np.random.rand(m, k_factor) 
-    Y = 5 * np.random.rand(k_factor, n)
+    X = 5 * np.random.rand(n, k_factor) 
+    Y = 5 * np.random.rand(k_factor, m)
     errors = []
     for ii in range(n_iterations):
         X = np.linalg.solve(np.dot(Y, Y.T) + lambda_ * np.eye(k_factor), 
@@ -110,15 +111,22 @@ for k_factor in n_factors:
             print('{}th iteration is completed'.format(ii))
         #errors.append(get_error(Q_test, X, Y, W_test))
     Q_hat = np.dot(X, Y)#.clip(min=0,max=5)
-    Q_hats.append(Q_hat)
+    #Q_hats.append(Q_hat)
     k_errors[n_factors.index(k_factor)]=np.sqrt(get_error_Qpred(Q_test,Q_hat,W_test)/np.sum(W_test))
 
-print k_errors
-plt.plot(k_errors);
-plt.ylim([3, 3.2]);
+end=time.time()
+print 'execution time',(end-start)
 
+Q_baseline=np.ones((n,m))*(np.sum(Q_train)/np.sum(W_train))
+rmse_baseline=np.sqrt(get_error_Qpred(Q_test,Q_baseline,W_test)/np.sum(W_test))
+print 'rmse baseline= ',rmse_baseline
+
+plt.plfig = plt.figure(2029)
+plt.xlabel('rank')
+plt.ylabel('RMSE')
+plt.title('rmse to rank variation')
 plt.plot(n_factors,k_errors)
-plt.ylim([650000, 1400000]);
+plt.savefig('rmse_rank_model1_zoomed.svg')
 
 Allhists=np.zeros((len(n_factors),int(np.sum(W_test))))
 for h in range(0,len(n_factors)):

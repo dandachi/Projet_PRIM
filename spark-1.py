@@ -130,7 +130,7 @@ def myALStrain(training, rank, numIter, lmbda,usersnum,moviesnum,ratings):
     return modelX,modelY
 
 if __name__ == "__main__":
-    start = time.time()
+
     if (len(sys.argv) != 3):
         print "out: Usage: /path/to/spark/bin/spark-submit --driver-memory 2g " + \
           "MovieLensALS.py movieLensDataDir personalRatingsFile"
@@ -190,8 +190,8 @@ if __name__ == "__main__":
     print "out: Training: %d, validation: %d, test: %d" % (numTraining, numValidation, numTest)
 
     # train models and evaluate them on the validation set
-
-    ranks = [16]
+    start = time.time()
+    ranks = [32]
     lambdas = [0.1]
     numIters = [20]
     bestModel = None
@@ -214,11 +214,12 @@ if __name__ == "__main__":
             bestNumIter = numIter
 
     testRmse = myComputeRmse(bestModelX,bestModelY, test, numTest)
+    end = time.time()
     # evaluate the best model on the test set
     print "out: The best model was trained with rank = %d and lambda = %.1f, " % (bestRank, bestLambda) \
       + "and numIter = %d, and its RMSE on the test set is %f." % (bestNumIter, testRmse)
     
-    end = time.time()
+
     
     print 'total time = ' + str(end-start)
     # compare the best model with a naive baseline that always returns the mean rating
